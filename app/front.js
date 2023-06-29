@@ -55,7 +55,7 @@ function parseFile() {
     }
 
 function writeToFile(lines, filePath) {
-    const content = lines.join('\n'); // Объединяем строки массива с помощью символа новой строки
+    const content = lines.join('\r\n'); // Объединяем строки массива с помощью символа новой строки
     fs.writeFileSync(filePath, content); // Записываем содержимое в файл
     addLogs(`<span class="lang_process-end"></span>: ${filePath}`);
 }
