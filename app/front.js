@@ -44,7 +44,7 @@ function parseFile() {
                 console.error(err);
                 return;
             }
-            let keys = data.toString().split('\r\n');
+            let keys = data.toString().trim().split(/\r?\n/);
             let filterKeys = keys.filter(key => key.trim() !== '');
             fileName.innerHTML = fileInput.files[0].name;
             walletCount.innerText = filterKeys.length;

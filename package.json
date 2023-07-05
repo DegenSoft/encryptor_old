@@ -1,12 +1,16 @@
 {
   "name": "wallet_encrypt",
   "version": "1.0.0",
-  "description": "Desc",
+  "authors": "Vladyslav Makovskyi",
+  "description": "Wallet encryption [DEGENSOFT]",
   "main": "app/index.js",
+  "icon": "assets/img/logo.png",
   "build": {
-    "appId": "Avulud",
+    "appId": "EncryptDegenSoft",
     "asar": true,
+    "icon":"assets/img/logo.png",
     "win": {
+      
       "target": "portable",
       "signingHashAlgorithms": [
         "sha256"
