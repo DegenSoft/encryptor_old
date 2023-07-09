@@ -15,7 +15,7 @@ const createWindow = () => {
   })
   mainWindow.setIcon(path.join(__dirname, '../assets/img/logo.png'));
   mainWindow.loadFile('index.html');
-  mainWindow.removeMenu();
+  //mainWindow.removeMenu();
 }
 
 

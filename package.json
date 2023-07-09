@@ -8,9 +8,8 @@
   "build": {
     "appId": "EncryptDegenSoft",
     "asar": true,
-    "icon":"assets/img/logo.png",
+    "icon": "assets/img/logo.png",
     "win": {
-      
       "target": "portable",
       "signingHashAlgorithms": [
         "sha256"
@@ -30,6 +29,7 @@
     "console-stamp": "^3.1.1",
     "crypto-js": "^4.1.1",
     "ethers": "^5.7.2",
+    "xlsx": "^0.18.5",
     "yarn": "^1.22.19"
   },
   "devDependencies": {

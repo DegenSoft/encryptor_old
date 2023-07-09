@@ -1,4 +1,5 @@
 const fs = require('fs');
+const xlsx = require('xlsx');
 const CryptoJS = require('crypto-js');
 const { langEN, langRU } = require('./translate');
 const passKey = document.getElementById('pass-key')
@@ -38,26 +39,114 @@ langRuBtn.addEventListener("click", () => {
 let KeyGlobal = [];
 
 function parseFile() {
-        const filePaths = fileInput.files[0].path;
-        fs.readFile(filePaths, (err, data) => {
-            if (err) {
-                console.error(err);
-                return;
-            }
-            let keys = data.toString().trim().split(/\r?\n/);
-            let filterKeys = keys.filter(key => key.trim() !== '');
-            fileName.innerHTML = fileInput.files[0].name;
-            walletCount.innerText = filterKeys.length;
-            addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
-                ` <span class="lang_loaded"></span> ${filterKeys.length} `)
-            KeyGlobal = filterKeys;
-        });
-    }
+    const filePaths = fileInput.files[0].path;
+    fs.readFile(filePaths, (err, data) => {
+        if (err) {
+            console.error(err);
+            return;
+        }
+        const fileExtension = filePaths.split('.').pop().toLowerCase();
+        switch (fileExtension) {
+            case 'txt':
+                return parseTxt(data);
+            case 'xlsx':
+                return parseXlsx(filePaths);
+            case 'csv':
+                return parseCsv(data);
+            // Добавьте дополнительные форматы файлов по мере необходимости
+            default:
+                return addLogs('Неизвестный формат файла');
+        }
+    });
+}
 
 function writeToFile(lines, filePath) {
     const content = lines.join('\r\n'); // Объединяем строки массива с помощью символа новой строки
     fs.writeFileSync(filePath, content); // Записываем содержимое в файл
     addLogs(`<span class="lang_process-end"></span>: ${filePath}`);
+}
+
+function parseTxt(data) {
+    let keys = data.toString().trim().split(/\r?\n/);
+    let filterKeys = keys.filter(key => key.trim() !== '');
+    fileName.innerHTML = fileInput.files[0].name;
+    walletCount.innerText = filterKeys.length;
+    addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
+        ` <span class="lang_loaded"></span> ${filterKeys.length} `)
+    KeyGlobal = filterKeys;
+}
+
+function parseXlsx(path) {
+
+    const workbook = xlsx.readFile(path);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    // Получение диапазона ячеек, содержащих данные
+    const range = xlsx.utils.decode_range(worksheet['!ref']);
+    console.log(range);
+    fileName.innerHTML = fileInput.files[0].name;
+    walletCount.innerText = range.e.r;
+    addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
+        ` <span class="lang_loaded"></span> ${range.e.r} `)
+    // Массив для хранения выбранных данных
+    const data = [];
+
+    // Итерация по каждой ячейке в диапазоне
+    for (let rowNum = 1; rowNum <= range.e.r; rowNum++) {
+        for (let colNum = range.s.c; colNum <= range.e.c; colNum++) {
+            const cellAddress = xlsx.utils.encode_cell({ r: rowNum, c: colNum });
+            const cellValue = worksheet[cellAddress]?.v; // Получение значения ячейки
+            data.push(cellValue);
+        }
+    }
+
+    KeyGlobal = data;
+}
+
+function parseCsv(data) {
+    const rows = data.toString().split('\n');
+    const headers = rows[0].split(',');
+    const columnCount = headers.length;
+    const nonEmptyData = [];
+
+    // Обход данных в каждом столбце
+    for (let i = 0; i < columnCount; i++) {
+        const columnData = [];
+
+        // Пропуск заголовка столбца
+        for (let j = 1; j < rows.length; j++) {
+            const row = rows[j].split(',');
+            if (row[i] !== undefined && row[i].trim() !== '') {
+                columnData.push(row[i].trim());
+            }
+        }
+
+        nonEmptyData.push(columnData);
+    }
+
+    fileName.innerHTML = fileInput.files[0].name;
+    walletCount.innerText = nonEmptyData[0].length;
+    addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
+        ` <span class="lang_loaded"></span> ${nonEmptyData[0].length} `);
+    KeyGlobal = nonEmptyData;
+}
+
+function encryptTxt(path) {
+    const pathToWrite = path.replace(/\.txt$/, '.hash' + '.txt');
+     let encryptData = [];
+    KeyGlobal.forEach((el, i) => {
+        encryptData.push(encryptPrivateKey(el, passKey.value));
+    });
+    writeToFile(encryptData, pathToWrite);
+}
+
+function encryptCsv(path) {
+    const pathToWrite = path.replace(/\.csv$/, '.hash' + '.csv');
+     let encryptData = [];
+    console.log(KeyGlobal)
+}
+
+function encryptXlsx(path) {
+    
 }
 
 function addLogs(data) {
@@ -89,14 +178,22 @@ function encryptPrivateKey(privateKey, password) {
 
 function encryptAll() {
     addLogs(`<span class="lang_process-start"></span>`);
-    if(!fileInput.files[0]) return  addLogs(`<span class="lang_error"></span> | <span class="lang_choose-wallets"></span>`);
-    if(passKey.value === "") return  addLogs(`<span class="lang_error"></span> | <span class="lang_enter-pass"></span>`);
-    const filePath = fileInput.files[0].path.replace(/\.txt$/, '_hash' + '.txt');
-    let encryptData = [];
-    KeyGlobal.forEach((el, i) => {
-        encryptData.push(encryptPrivateKey(el, passKey.value));
-    });
-    writeToFile(encryptData, filePath);
+    if (!fileInput.files[0]) return addLogs(`<span class="lang_error"></span> | <span class="lang_choose-wallets"></span>`);
+    if (passKey.value === "") return addLogs(`<span class="lang_error"></span> | <span class="lang_enter-pass"></span>`);
+    const filePath = fileInput.files[0].path//.replace(/\.txt$/, '_hash' + '.txt');
+    const fileExtension = filePath.split('.').pop().toLowerCase();
+    switch (fileExtension) {
+        case 'txt':
+            return encryptTxt(filePath);
+        case 'xlsx':
+            return encryptXlsx(filePath);
+        case 'csv':
+            return encryptCsv(filePath);
+        // Добавьте дополнительные форматы файлов по мере необходимости
+        default:
+            return addLogs('Неизвестный формат файла');
+    }
+   
 }
 
 fileInput.addEventListener("change", parseFile);
