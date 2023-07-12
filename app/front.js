@@ -37,6 +37,7 @@ langRuBtn.addEventListener("click", () => {
 });
 
 let KeyGlobal = [];
+let HeadersGlobal = [];
 
 function parseFile() {
     const filePaths = fileInput.files[0].path;
@@ -60,8 +61,7 @@ function parseFile() {
     });
 }
 
-function writeToFile(lines, filePath) {
-    const content = lines.join('\r\n'); // Объединяем строки массива с помощью символа новой строки
+function writeToFile(content, filePath) {
     fs.writeFileSync(filePath, content); // Записываем содержимое в файл
     addLogs(`<span class="lang_process-end"></span>: ${filePath}`);
 }
@@ -77,29 +77,36 @@ function parseTxt(data) {
 }
 
 function parseXlsx(path) {
-
+    // Массив для хранения выбранных данных
     const workbook = xlsx.readFile(path);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
     // Получение диапазона ячеек, содержащих данные
     const range = xlsx.utils.decode_range(worksheet['!ref']);
-    console.log(range);
     fileName.innerHTML = fileInput.files[0].name;
     walletCount.innerText = range.e.r;
     addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
         ` <span class="lang_loaded"></span> ${range.e.r} `)
-    // Массив для хранения выбранных данных
-    const data = [];
+
+
+    // Массив для хранения измененных данных
+    const newData = [];
 
     // Итерация по каждой ячейке в диапазоне
-    for (let rowNum = 1; rowNum <= range.e.r; rowNum++) {
+    for (let rowNum = 0; rowNum <= range.e.r; rowNum++) {
+        const row = [];
+
         for (let colNum = range.s.c; colNum <= range.e.c; colNum++) {
             const cellAddress = xlsx.utils.encode_cell({ r: rowNum, c: colNum });
             const cellValue = worksheet[cellAddress]?.v; // Получение значения ячейки
-            data.push(cellValue);
+            row.push(cellValue);
         }
+
+        newData.push(row);
     }
 
-    KeyGlobal = data;
+
+    KeyGlobal = newData;
 }
 
 function parseCsv(data) {
@@ -107,7 +114,6 @@ function parseCsv(data) {
     const headers = rows[0].split(',');
     const columnCount = headers.length;
     const nonEmptyData = [];
-
     // Обход данных в каждом столбце
     for (let i = 0; i < columnCount; i++) {
         const columnData = [];
@@ -128,25 +134,67 @@ function parseCsv(data) {
     addLogs(`<span class="lang_info"></span> | <span class="lang_wallets"></span> |` +
         ` <span class="lang_loaded"></span> ${nonEmptyData[0].length} `);
     KeyGlobal = nonEmptyData;
+    HeadersGlobal = headers;
 }
 
 function encryptTxt(path) {
     const pathToWrite = path.replace(/\.txt$/, '.hash' + '.txt');
-     let encryptData = [];
+    let encryptData = [];
     KeyGlobal.forEach((el, i) => {
         encryptData.push(encryptPrivateKey(el, passKey.value));
     });
-    writeToFile(encryptData, pathToWrite);
+    const content = encryptData.join('\r\n');
+    writeToFile(content, pathToWrite);
 }
 
 function encryptCsv(path) {
     const pathToWrite = path.replace(/\.csv$/, '.hash' + '.csv');
-     let encryptData = [];
-    console.log(KeyGlobal)
+
+    let encryptData = '';
+
+    // Добавление заголовков столбцов
+    encryptData += HeadersGlobal.join(',') + '\n';
+
+    // Добавление данных
+    // Определение максимального количества элементов в столбцах
+    const maxColumnLength = KeyGlobal.reduce((max, column) => Math.max(max, column.length), 0);
+    const columnCount = HeadersGlobal.length;
+    // Добавление данных
+    for (let i = 0; i < maxColumnLength; i++) {
+        for (let j = 0; j < columnCount; j++) {
+            const columnData = KeyGlobal[j];
+            const value = i < columnData.length ? encryptPrivateKey(columnData[i], passKey.value) : '';
+
+            encryptData += value;
+
+            if (j !== columnCount - 1) {
+                encryptData += ',';
+            }
+        }
+
+        encryptData += '\n';
+    }
+    addLogs(`<span class="lang_encryptColumns"></span> ${HeadersGlobal.join(', ')}`);
+    writeToFile(encryptData, pathToWrite);
 }
 
 function encryptXlsx(path) {
-    
+    const pathToWrite = path.replace(/\.xlsx$/, '.hash' + '.xlsx');
+    const newWorkbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.aoa_to_sheet(KeyGlobal);
+    console.log(worksheet)
+    // Обновление данных в рабочем листе
+    for (let rowNum = 1; rowNum < KeyGlobal.length; rowNum++) {
+        for (let colNum = 0; colNum < KeyGlobal[rowNum].length; colNum++) {
+            const cellAddress = xlsx.utils.encode_cell({ r: rowNum, c: colNum });
+            worksheet[cellAddress].v = encryptPrivateKey(KeyGlobal[rowNum][colNum], passKey.value);
+        }
+    }
+    addLogs(`<span class="lang_encryptColumns"></span> ${KeyGlobal[0].join(', ')}`);
+    // Запись обновленного файла
+    xlsx.utils.book_append_sheet(newWorkbook, worksheet, 'Sheet1');
+    xlsx.writeFile(newWorkbook, pathToWrite);
+    addLogs(`<span class="lang_process-end"></span>: ${pathToWrite}`);
 }
 
 function addLogs(data) {
@@ -167,11 +215,11 @@ function encryptPrivateKey(privateKey, password) {
     const privateKeyBytes = CryptoJS.enc.Hex.parse(privateKey);
 
     // Процесс генерации ключа из пароля с использованием PBKDF2
-    const key = CryptoJS.PBKDF2(password, CryptoJS.SHA256(password), { keySize: 256 / 32 });
-
+    const key = CryptoJS.PBKDF2(password, CryptoJS.SHA256(password), { keySize: 32 });
+    console.log(key.toString())
     // Шифрование ключа с помощью AES
     const ciphertext = CryptoJS.AES.encrypt(privateKeyBytes, key, { mode: CryptoJS.mode.ECB });
-
+    console.log(ciphertext)
     // Возвращение зашифрованного приватного ключа в формате Base64
     return ciphertext.toString();
 }
@@ -193,7 +241,7 @@ function encryptAll() {
         default:
             return addLogs('Неизвестный формат файла');
     }
-   
+
 }
 
 fileInput.addEventListener("change", parseFile);

@@ -12,6 +12,7 @@ const langRU = {
     "loaded": `Загружено`,
     "choose-wallets": `Выберите файл кошельков`,
     "enter-pass": `Введите ключ шифрования`,
+    "encryptColumns" : `Шифруем столбцы: `
 
 }
 const langEN = {
@@ -28,6 +29,7 @@ const langEN = {
     "loaded": `Loaded`,
     "choose-wallets": `Select wallet file`,
     "enter-pass": `Enter the encryption key`,
+    "encryptColumns" : `Encrypting columns: `
 }
 
 module.exports = {langEN, langRU}
